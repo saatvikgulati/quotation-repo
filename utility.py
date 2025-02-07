@@ -1,5 +1,6 @@
 import streamlit as st
 from contextlib import contextmanager
+import helper
 import sqlite3
 import pandas as pd
 
@@ -27,6 +28,8 @@ def init_db(table_name,columns,df):
                     column_definitions.append(f'{column} real')
                 elif df[column].dtype == 'datetime64[ns]':
                     column_definitions.append(f'{column} datetime')
+                elif df[column].dtype == 'int64':
+                    column_definitions.append(f'{column} integer')
                 else:
                     column_definitions.append(f'{column} text')
 
@@ -49,6 +52,7 @@ def bulk_insert(df,table_name):
             st.success(f'Successfully inserted {len(df)} rows into db')
         except Exception as e:
             st.error(f'Error in bulk insert into {table_name} table')
+            print(e)
             st.error(e)
 
 def bulk_delete(df,table_name,column_name):
@@ -56,14 +60,21 @@ def bulk_delete(df,table_name,column_name):
         cursor = conn.cursor()
         try:
             gen_ids = df[column_name].tolist()
+            safe_column = helper.sanitize_column_name(column_name)
             chunk_size = 999
             for i in range(0,len(gen_ids),chunk_size):
                 chunk = gen_ids[i:i+chunk_size]
                 placeholders = ','.join(['?']*len(chunk))
-                query = f'delete from {table_name} where {column_name} in ({placeholders})'
+                query = f'delete from {table_name} where {safe_column} in ({placeholders})'
                 cursor.execute(query,chunk)
             conn.commit()
             st.success(f'Deleted {len(df)} rows from {table_name} table')
+            cursor.execute(f'select count(*) from {table_name}')
+            row_count = cursor.fetchone()[0]
+            if row_count == 0:
+                cursor.execute(f'drop table {table_name}')
+                conn.commit()
+                st.success(f'Table {table_name} has been dropped as it is empty')
         except Exception as e:
             st.error(f'Error in bulk delete from {table_name} table')
             st.error(e)
@@ -95,8 +106,10 @@ def insert_data(table_name,column_names,values):
     with get_conn() as conn:
         cursor = conn.cursor()
         try:
-            placeholders = ','.join(['?' for _ in column_names])
-            query = f"insert into {table_name} ({','.join(column_names)}) values ({placeholders})"
+            safe_columns = [helper.sanitize_column_name(col) for col in column_names]
+            placeholders = ','.join(['?' for _ in safe_columns])
+            columns_str = ','.join(f'"{col}"' for col in safe_columns)
+            query = f"insert into {table_name} ({columns_str}) values ({placeholders})"
             cursor.execute(query,values)
             conn.commit()
             st.success(f'Data inserted successfully to {table_name} table')
@@ -108,6 +121,10 @@ def delete_data(table_name,condition,condition_values):
     with get_conn() as conn:
         cursor = conn.cursor()
         try:
+            condition_splits = condition.split('=')
+            if len(condition_splits)==2:
+                safe_column = helper.sanitize_column_name(condition_splits[0].strip())
+                condition = f'"{safe_column}" = ?'
             query = f'delete from {table_name} where {condition}'
             cursor.execute(query,condition_values)
             conn.commit()
