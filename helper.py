@@ -19,6 +19,12 @@ def sanitize_column_name(column_name):
     clean_name = clean_name.lower()
     return clean_name
 
+def drop_empty_tables(cursor,conn,table_name):
+    cursor.execute(f'select count(*) from {table_name}')
+    row_count = cursor.fetchone()[0]
+    if row_count == 0:
+        cursor.execute(f'drop table {table_name}')
+        conn.commit()
 
 def detect_and_convert_dates(df):
     """Convert all datetime-eligible columns to datetime dtype."""
@@ -64,7 +70,7 @@ def generate_chart(df, column, chart_type):
 
     if is_actual_revenue and 'customer_name' in df.columns:
         # First, get total revenue by customer
-        customer_revenue = df.groupby('customer_name')[column].sum().reset_index()
+        customer_revenue = df.groupby('sector_name')[column].sum().reset_index()
         customer_revenue.columns = ['Customer', 'Revenue']
 
         # Sort by revenue in descending order

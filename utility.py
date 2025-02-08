@@ -69,12 +69,8 @@ def bulk_delete(df,table_name,column_name):
                 cursor.execute(query,chunk)
             conn.commit()
             st.success(f'Deleted {len(df)} rows from {table_name} table')
-            cursor.execute(f'select count(*) from {table_name}')
-            row_count = cursor.fetchone()[0]
-            if row_count == 0:
-                cursor.execute(f'drop table {table_name}')
-                conn.commit()
-                st.success(f'Table {table_name} has been dropped as it is empty')
+            helper.drop_empty_tables(cursor,conn,table_name)
+            helper.drop_empty_tables(cursor, conn, 'tables')
         except Exception as e:
             st.error(f'Error in bulk delete from {table_name} table')
             st.error(e)

@@ -17,9 +17,13 @@ def main():
             if file_uploader.name.endswith('.csv'):
                 df = pd.read_csv(file_uploader)
             elif file_uploader.name.endswith('.xlsx'):
-                sheet_name = st.text_input('Enter sheet name')
+                sheets = pd.ExcelFile(file_uploader)
+                sheet_name = sheets.sheet_names
+                sheet_name = st.selectbox('Enter sheet name',sheet_name)
                 if sheet_name:
                     df = pd.read_excel(file_uploader,sheet_name)
+                else:
+                    df = pd.read_excel(file_uploader)
             if 'df' in locals():
                 if not df.empty:
                     df = helper.detect_and_convert_dates(df)
@@ -42,23 +46,13 @@ def main():
         df = utility.fetch_data('tables')
         if not df.empty:
             table_name = st.selectbox('Select table name',df['table_name'].tolist())
-            delete_from_file = st.file_uploader('Upload CSV or Excel to delete',type=['csv','xlsx'])
-            if delete_from_file is not None:
-                if table_name and delete_from_file.name.endswith('.csv'):
-                    df1 = pd.read_csv(delete_from_file)
-                elif table_name and delete_from_file.name.endswith('.xlsx'):
-                    sheet_name = st.text_input('Enter sheet name')
-                    if sheet_name:
-                        df1 = pd.read_excel(delete_from_file,sheet_name)
-                    else:
-                        df1 = pd.read_excel(delete_from_file)
-                id_column = st.selectbox('Select ID column from file',df1.columns.tolist())
-                if st.button('Bulk Delete'):
-                    utility.bulk_delete(df1,table_name,id_column)
-                    helper.reset_auto_increment(table_name)
-                    utility.delete_data('tables','table_name=?',(table_name,))
-                    helper.reset_auto_increment('tables')
-                    st.rerun()
+            df1 = utility.fetch_data(table_name)
+            column = st.multiselect('Select column to drop',df1.columns.tolist())
+            if st.button('Bulk Delete'):
+                utility.bulk_delete(df1,table_name,column)
+                helper.reset_auto_increment(table_name)
+                utility.delete_data('tables','table_name=?',(table_name,))
+                st.rerun()
         else:
             st.info('No data')
     elif page == 'Summary':
