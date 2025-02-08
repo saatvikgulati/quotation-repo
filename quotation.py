@@ -63,7 +63,7 @@ def main():
             with col1:
                 if not columns_with_issues.empty:
                     st.write("### Columns with Null or Empty Values:")
-                    st.write(columns_with_issues)
+                    st.dataframe(columns_with_issues)
                 else:
                     st.info("No columns with null or empty values found.")
             with col2:
@@ -71,7 +71,7 @@ def main():
                 if not columns_with_issues.empty:
                     st.write("### Preview of Rows with Issues:")
                     preview_df = df1[columns_with_issues['Column']]
-                    st.write(preview_df)  # Show first 10 rows as a preview
+                    st.dataframe(preview_df)  # Show first 10 rows as a preview
                 else:
                     st.info("No columns with null or empty values found.")
             column = st.multiselect('Select column to drop',df1.columns.tolist())
