@@ -55,23 +55,22 @@ def bulk_insert(df,table_name):
             print(e)
             st.error(e)
 
-def bulk_delete(df,table_name,column_name):
+def bulk_delete(table_name,column_name):
     with get_conn() as conn:
         cursor = conn.cursor()
         try:
-            gen_ids = df[column_name].tolist()
-            safe_column = helper.sanitize_column_name(column_name)
-            chunk_size = 999
-            for i in range(0,len(gen_ids),chunk_size):
-                chunk = gen_ids[i:i+chunk_size]
-                placeholders = ','.join(['?']*len(chunk))
-                query = f'delete from {table_name} where {safe_column} in ({placeholders})'
-                cursor.execute(query,chunk)
+            existing_df = fetch_data(table_name)
+            if column_name in existing_df.columns:
+                existing_df = existing_df.drop(columns=column_name,axis=1)
+            existing_df.to_sql(f'{table_name}_new',conn,if_exists='replace',index=False,chunksize=1000)
+            cursor.execute(f'drop table if exists {table_name};')
+            cursor.execute(f'alter table {table_name}_new rename to {table_name};')
             conn.commit()
-            st.success(f'Deleted {len(df)} rows from {table_name} table')
+            st.success(f'Delete column {column_name} from {table_name} table. Remaining rows: {len(existing_df)}')
             helper.drop_empty_tables(cursor,conn,table_name)
             helper.drop_empty_tables(cursor, conn, 'tables')
         except Exception as e:
+            conn.rollback()
             st.error(f'Error in bulk delete from {table_name} table')
             st.error(e)
 

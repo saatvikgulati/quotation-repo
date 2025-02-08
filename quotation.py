@@ -47,9 +47,36 @@ def main():
         if not df.empty:
             table_name = st.selectbox('Select table name',df['table_name'].tolist())
             df1 = utility.fetch_data(table_name)
+            null_counts = df1.isnull().sum()
+            empty_counts = df1.apply(lambda col: (col == '').sum())
+
+            # Combine the statistics
+            stats = pd.DataFrame({
+                'Column': df1.columns,
+                'Null values': null_counts,
+                'Empty strings': empty_counts
+            })
+
+            # Identify columns with null or empty values
+            columns_with_issues = stats[(stats['Null values'] > 0) | (stats['Empty strings'] > 0)]
+            col1, col2 = st.columns(2)
+            with col1:
+                if not columns_with_issues.empty:
+                    st.write("### Columns with Null or Empty Values:")
+                    st.write(columns_with_issues)
+                else:
+                    st.info("No columns with null or empty values found.")
+            with col2:
+                # Display preview of rows where columns have null or empty values
+                if not columns_with_issues.empty:
+                    st.write("### Preview of Rows with Issues:")
+                    preview_df = df1[columns_with_issues['Column']]
+                    st.write(preview_df)  # Show first 10 rows as a preview
+                else:
+                    st.info("No columns with null or empty values found.")
             column = st.multiselect('Select column to drop',df1.columns.tolist())
             if st.button('Bulk Delete'):
-                utility.bulk_delete(df1,table_name,column)
+                utility.bulk_delete(table_name,column)
                 helper.reset_auto_increment(table_name)
                 utility.delete_data('tables','table_name=?',(table_name,))
                 st.rerun()
