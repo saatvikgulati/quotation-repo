@@ -19,13 +19,6 @@ def sanitize_column_name(column_name):
     clean_name = clean_name.lower()
     return clean_name
 
-def drop_empty_tables(cursor,conn,table_name):
-    cursor.execute(f'select count(*) from {table_name}')
-    row_count = cursor.fetchone()[0]
-    if row_count == 0:
-        cursor.execute(f'drop table {table_name}')
-        conn.commit()
-
 def detect_and_convert_dates(df):
     """Convert all datetime-eligible columns to datetime dtype."""
     date_formats = [
@@ -156,14 +149,3 @@ def generate_chart(df, column, chart_type):
         )
 
     return fig
-
-def reset_auto_increment(table_name):
-    with utility.get_conn() as conn:
-        try:
-            cursor = conn.cursor()
-            cursor.execute(f'delete from sqlite_sequence where name=\'{table_name}\'')
-            conn.commit()
-            st.success(f'Reset auto increment counter for {table_name} table')
-        except Exception as e:
-            st.error(f'Error resetting auto-increment for {table_name} table')
-            st.error(e)

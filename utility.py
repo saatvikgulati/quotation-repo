@@ -52,25 +52,22 @@ def bulk_insert(df,table_name):
             st.success(f'Successfully inserted {len(df)} rows into db')
         except Exception as e:
             st.error(f'Error in bulk insert into {table_name} table')
-            print(e)
             st.error(e)
 
-def bulk_delete(table_name,column_name):
+def bulk_delete_column(table_name,column_name):
     with get_conn() as conn:
         cursor = conn.cursor()
         try:
             existing_df = fetch_data(table_name)
-            if column_name in existing_df.columns:
-                existing_df = existing_df.drop(columns=column_name,axis=1)
+            for column in column_name:
+                if column in existing_df.columns:
+                    existing_df = existing_df.drop(columns=column,axis=1)
             existing_df.to_sql(f'{table_name}_new',conn,if_exists='replace',index=False,chunksize=1000)
             cursor.execute(f'drop table if exists {table_name};')
             cursor.execute(f'alter table {table_name}_new rename to {table_name};')
             conn.commit()
             st.success(f'Delete column {column_name} from {table_name} table. Remaining rows: {len(existing_df)}')
-            helper.drop_empty_tables(cursor,conn,table_name)
-            helper.drop_empty_tables(cursor, conn, 'tables')
         except Exception as e:
-            conn.rollback()
             st.error(f'Error in bulk delete from {table_name} table')
             st.error(e)
 
@@ -95,6 +92,18 @@ def tables():
             conn.commit()
         except Exception as e:
             st.error('Error cannot create tables table')
+            st.error(e)
+
+def drop_tables(table_names):
+    with get_conn() as conn:
+        cursor = conn.cursor()
+        try:
+            for table_name in table_names:
+                cursor.execute(f'drop table if exists {table_name}')
+            conn.commit()
+            st.success(f'Tables {', '.join(table_names)} dropped successfully')
+        except Exception as e:
+            st.error(f'Error cannot drop {table_names}')
             st.error(e)
 
 def insert_data(table_name,column_names,values):

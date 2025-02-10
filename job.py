@@ -5,6 +5,8 @@ import helper
 import utility
 
 pd.set_option('display.float_format', lambda x: '%.3f' % x)
+if 'confirm_delete_all' not in st.session_state:
+    st.session_state.confirm_delete_all = False
 
 def main():
     st.title('Management System')
@@ -12,6 +14,10 @@ def main():
     utility.tables()
     if page == 'Flood db':
         table_name = st.text_input('Enter table name')
+        tables = utility.fetch_data('tables')
+        if not tables.empty:
+            st.subheader('Tables')
+            st.dataframe(tables['table_name'])
         file_uploader = st.file_uploader('Upload CSV or Excel',type=['csv','xlsx'])
         if file_uploader is not None:
             if file_uploader.name.endswith('.csv'):
@@ -28,10 +34,8 @@ def main():
                 if not df.empty:
                     df = helper.detect_and_convert_dates(df)
                     df.columns = [helper.sanitize_column_name(col) for col in df.columns]
-                    if 'Total' in df['location'].values:
-                        df = df[df['location'] != 'Total']
-                # if 'Job Type.1' in df.columns:
-                #     df = df.drop(['Job Type.1'], axis=1)
+                    if df['location'].isin(['TOTAL','Total','total']).any():
+                        df = df[~df['location'].isin(['Total','TOTAL','total'])]
                 st.write('Uploaded Data: ')
                 st.dataframe(df)
                 if table_name:
@@ -62,24 +66,45 @@ def main():
             col1, col2 = st.columns(2)
             with col1:
                 if not columns_with_issues.empty:
-                    st.write("### Columns with Null or Empty Values:")
-                    st.dataframe(columns_with_issues)
+                    st.write("Columns with Null or Empty Values:")
+                    st.dataframe(columns_with_issues,hide_index=True)
                 else:
                     st.info("No columns with null or empty values found.")
             with col2:
                 # Display preview of rows where columns have null or empty values
                 if not columns_with_issues.empty:
-                    st.write("### Preview of Rows with Issues:")
+                    st.write("Preview of Rows with null or empty values:")
                     preview_df = df1[columns_with_issues['Column']]
-                    st.dataframe(preview_df)  # Show first 10 rows as a preview
+                    st.dataframe(preview_df)
                 else:
                     st.info("No columns with null or empty values found.")
-            column = st.multiselect('Select column to drop',df1.columns.tolist())
-            if st.button('Bulk Delete'):
-                utility.bulk_delete(table_name,column)
-                helper.reset_auto_increment(table_name)
-                utility.delete_data('tables','table_name=?',(table_name,))
+            st.subheader('Column deletion')
+            column = st.multiselect('Select column to drop',columns_with_issues['Column'])
+            if st.button('Delete Columns'):
+                utility.bulk_delete_column(table_name,column)
                 st.rerun()
+            st.subheader('Delete all tables')
+            tables = utility.fetch_data('tables')
+            if not st.session_state.confirm_delete_all:
+                if st.button('Delete all tables'):
+                    st.session_state.confirm_delete_all = True
+                    st.rerun()
+            else:
+                st.warning("⚠️ Are you sure you want to delete all tables? This action cannot be undone.")
+                col1,col2 = st.columns(2)
+                with col1:
+                    if st.button('Confirm Delete All'):
+                        utility.drop_tables(tables['table_name'])
+                        utility.drop_tables(['tables'])
+                        st.session_state.confirm_delete_all = False
+                        st.success('All tables have been successfully deleted.')
+                        st.rerun()
+                with col2:
+                    if st.button('Cancel'):
+                        st.session_state.confirm_delete_all = False
+                        st.info('Nothing was deleted')
+                        st.rerun()
+
         else:
             st.info('No data')
     elif page == 'Summary':
@@ -88,7 +113,7 @@ def main():
         if not df1.empty:
             table_name = st.selectbox('Select table name',df1['table_name'].tolist())
             df = utility.fetch_data(table_name)
-            st.dataframe(df)
+            st.dataframe(df,hide_index=True)
             if not df.empty:
                 chart = st.radio('Chart',['Pie Chart','Bar Chart'],index=0)
                 column = df.columns
