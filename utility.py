@@ -48,21 +48,20 @@ def init_db(table_name,columns,df):
 def bulk_insert(df,table_name):
     with get_conn() as conn:
         try:
-            df.to_sql(table_name,conn,if_exists='append',index=False)
+            df.to_sql(table_name,conn,if_exists='append',index=False,chunksize=1000)
             st.success(f'Successfully inserted {len(df)} rows into db')
         except Exception as e:
             st.error(f'Error in bulk insert into {table_name} table')
             st.error(e)
 
-def bulk_delete_column(table_name,column_name):
+def bulk_delete_column(df,table_name,column_name):
     with get_conn() as conn:
         cursor = conn.cursor()
         try:
-            existing_df = fetch_data(table_name)
             for column in column_name:
-                if column in existing_df.columns:
-                    existing_df = existing_df.drop(columns=column,axis=1)
-            existing_df.to_sql(f'{table_name}_new',conn,if_exists='replace',index=False,chunksize=1000)
+                if column in df.columns:
+                    df = df.drop(columns=column,axis=1)
+            df.to_sql(f'{table_name}_new',conn,if_exists='replace',index=False,chunksize=1000)
             cursor.execute(f'drop table if exists {table_name};')
             cursor.execute(f'alter table {table_name}_new rename to {table_name};')
             conn.commit()
@@ -74,7 +73,7 @@ def bulk_delete_column(table_name,column_name):
 def fetch_data(table_name):
     with get_conn() as conn:
         try:
-            df = pd.read_sql_query(f'select * from {table_name}',conn)
+            df = pd.read_sql_query(f'select * from {table_name}',conn,chunksize=1000)
         except Exception as e:
             st.error(f'Error retrieving data from {table_name} table')
             st.error(e)

@@ -81,7 +81,7 @@ def main():
             st.subheader('Column deletion')
             column = st.multiselect('Select column to drop',columns_with_issues['Column'])
             if st.button('Delete Columns'):
-                utility.bulk_delete_column(table_name,column)
+                utility.bulk_delete_column(df1,table_name,column)
                 st.rerun()
             st.subheader('Delete all tables')
             tables = utility.fetch_data('tables')
