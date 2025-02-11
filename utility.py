@@ -70,10 +70,19 @@ def bulk_delete_column(df,table_name,column_name):
             st.error(f'Error in bulk delete from {table_name} table')
             st.error(e)
 
+
 def fetch_data(table_name):
     with get_conn() as conn:
         try:
-            df = pd.read_sql_query(f'select * from {table_name}',conn,chunksize=1000)
+            # Initialize an empty list to hold the chunks
+            chunks = []
+
+            # Use the chunksize to read the data in chunks
+            for chunk in pd.read_sql_query(f'SELECT * FROM {table_name}', conn, chunksize=1000):
+                chunks.append(chunk)  # Add each chunk to the list
+
+            # Concatenate all chunks into a single DataFrame
+            df = pd.concat(chunks, ignore_index=True)
         except Exception as e:
             st.error(f'Error retrieving data from {table_name} table')
             st.error(e)
