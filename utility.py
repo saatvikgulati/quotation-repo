@@ -40,6 +40,7 @@ def init_db(table_name,columns,df):
                                 {column_definitions_str}
                                 )'''
             cursor.execute(create_table_query)
+            cursor.execute(f'create index if not exists idx_id on {table_name} (id)')
             conn.commit()
         except Exception as e:
             st.error(f'Cannot create {table_name} table')
@@ -58,14 +59,12 @@ def bulk_delete_column(df,table_name,column_name):
     with get_conn() as conn:
         cursor = conn.cursor()
         try:
-            for column in column_name:
-                if column in df.columns:
-                    df = df.drop(columns=column,axis=1)
-            df.to_sql(f'{table_name}_new',conn,if_exists='replace',index=False,chunksize=1000)
+            df = df.drop(columns=[col for col in column_name if col in df.columns],axis=1)
+            df.to_sql(f'{table_name}_new',conn,if_exists='replace',index=False)
             cursor.execute(f'drop table if exists {table_name};')
             cursor.execute(f'alter table {table_name}_new rename to {table_name};')
             conn.commit()
-            st.success(f'Delete column {column_name} from {table_name} table. Remaining rows: {len(existing_df)}')
+            st.success(f'Delete column {column_name} from {table_name} table. Remaining rows: {len(df)}')
         except Exception as e:
             st.error(f'Error in bulk delete from {table_name} table')
             st.error(e)
