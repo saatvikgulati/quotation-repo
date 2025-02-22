@@ -23,19 +23,18 @@ def main():
             if file_uploader.name.endswith('.csv'):
                 df = pd.read_csv(file_uploader)
             elif file_uploader.name.endswith('.xlsx'):
-                sheets = pd.ExcelFile(file_uploader)
-                sheet_name = sheets.sheet_names
-                sheet_name = st.selectbox('Enter sheet name',sheet_name)
+                xlsx = pd.ExcelFile(file_uploader)
+                sheet_name = st.selectbox('Enter sheet name',xlsx.sheet_names)
                 if sheet_name:
-                    df = pd.read_excel(file_uploader,sheet_name)
+                    df = xlsx.parse(sheet_name)
                 else:
-                    df = pd.read_excel(file_uploader)
+                    df = xlsx.parse(0)
             if 'df' in locals():
                 if not df.empty:
                     df = helper.detect_and_convert_dates(df)
                     df.columns = [helper.sanitize_column_name(col) for col in df.columns]
                     if df['location'].isin(['TOTAL','Total','total']).any():
-                        df = df[~df['location'].isin(['Total','TOTAL','total'])]
+                        df = df.iloc[:-1, :]
                 st.write('Uploaded Data: ')
                 st.dataframe(df)
                 if table_name:
